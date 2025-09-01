@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Spell Converter</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .main-container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #6c5ce7;
+        }
+
+        .drop-area {
+            border: 2px dashed #6c5ce7;
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s;
+            background-color: #f8f9fa;
+        }
+
+        .drop-area.highlight {
+            background-color: #e9ecef;
+            border-color: #4834d4;
+        }
+
+        .drop-area h4 {
+            color: #6c5ce7;
+            margin-bottom: 1rem;
+        }
+
+        .drop-area p {
+            color: #6c757d;
+        }
+
+        .drop-icon {
+            font-size: 3rem;
+            color: #6c5ce7;
+            margin-bottom: 1rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn-primary {
+            background-color: #6c5ce7;
+            border-color: #6c5ce7;
+        }
+
+        .btn-primary:hover {
+            background-color: #4834d4;
+            border-color: #4834d4;
+        }
+
+        .btn-outline-primary {
+            color: #6c5ce7;
+            border-color: #6c5ce7;
+        }
+
+        .btn-outline-primary:hover {
+            background-color: #6c5ce7;
+            border-color: #6c5ce7;
+        }
+
+        .preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .preview-item {
+            width: 100px;
+            height: 100px;
+            margin: 0.5rem;
+            position: relative;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-item .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            text-align: center;
+            line-height: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #dc3545;
+        }
+
+        .results-container {
+            margin-top: 2rem;
+            padding: 1rem;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+
+        .result-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .folder-path-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .folder-path-input {
+            flex-grow: 1;
+            margin-right: 0.5rem;
+        }
+
+        .disabled {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .tab-content {
+            padding-top: 1.5rem;
+        }
+
+        .spinner-border {
+            width: 1.5rem;
+            height: 1.5rem;
+        }
+
+        .icons-container {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .format-icon {
+            text-align: center;
+            cursor: pointer;
+            padding: 1rem;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .format-icon:hover,
+        .format-icon.selected {
+            background-color: #e9ecef;
+        }
+
+        .format-icon i {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            color: #6c5ce7;
+        }
+
+        .options-container {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1.5rem 0;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background-color: #fff;
+            border-left: 4px solid #6c5ce7;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            z-index: 1000;
+            transition: all 0.3s;
+            transform: translateX(120%);
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            border-left-color: #28a745;
+        }
+
+        .notification.error {
+            border-left-color: #dc3545;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="notification" id="notification">
+        <div class="notification-content" id="notification-content"></div>
+    </div>
+
+    <div class="container main-container">
+        <div class="header">
+            <h1><i class="fas fa-magic"></i> Dark Spell Converter</h1>
+            <p class="lead">Convertisseur de fichiers PNG vers PDF ou WebP</p>
+        </div>
+
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="files-tab" data-bs-toggle="tab" data-bs-target="#files"
+                    type="button" role="tab" aria-controls="files" aria-selected="true">
+                    <i class="fas fa-file-image"></i> Fichiers
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="folder-tab" data-bs-toggle="tab" data-bs-target="#folder" type="button"
+                    role="tab" aria-controls="folder" aria-selected="false">
+                    <i class="fas fa-folder-open"></i> Dossier
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <!-- Onglet Fichiers -->
+            <div class="tab-pane fade show active" id="files" role="tabpanel" aria-labelledby="files-tab">
+                <div class="icons-container">
+                    <div class="format-icon" data-format="pdf" onclick="selectFormat(this, 'pdf')">
+                        <i class="fas fa-file-pdf"></i>
+                        <div>PDF</div>
+                    </div>
+                    <div class="format-icon" data-format="webp" onclick="selectFormat(this, 'webp')">
+                        <i class="fas fa-image"></i>
+                        <div>WebP</div>
+                    </div>
+                </div>
+
+                <div class="drop-area" id="drop-area">
+                    <i class="fas fa-cloud-upload-alt drop-icon"></i>
+                    <h4>Glissez et déposez des fichiers PNG ici</h4>
+                    <p>ou</p>
+                    <input type="file" class="file-input" id="file-input" multiple accept=".png">
+                    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                        Sélectionner des fichiers
+                    </button>
+                </div>
+
+                <div class="preview-container" id="preview-container" style="display: none;">
+                    <!-- Les aperçus des images seront ajoutés ici -->
+                </div>
+
+                <div class="d-grid gap-2 mt-3">
+                    <button class="btn btn-primary" id="convert-files-btn" disabled onclick="convertFiles()">
+                        <span id="convert-files-spinner" class="spinner-border spinner-border-sm me-2 d-none"
+                            role="status" aria-hidden="true"></span>
+                        Convertir les fichiers
+                    </button>
+                </div>
+            </div>
+
+            <!-- Onglet Dossier -->
+            <div class="tab-pane fade" id="folder" role="tabpanel" aria-labelledby="folder-tab">
+                <div class="icons-container">
+                    <div class="format-icon" data-format="pdf" onclick="selectFolderFormat(this, 'pdf')">
+                        <i class="fas fa-file-pdf"></i>
+                        <div>PDF</div>
+                    </div>
+                    <div class="format-icon" data-format="webp" onclick="selectFolderFormat(this, 'webp')">
+                        <i class="fas fa-image"></i>
+                        <div>WebP</div>
+                    </div>
+                </div>
+
+                <div class="folder-path-container">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="folder-path"
+                            placeholder="Chemin du dossier contenant les images PNG" readonly>
+                        <button class="btn btn-outline-primary" type="button" id="browse-folder-btn"
+                            onclick="browseFolder()">Parcourir</button>
+                    </div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="recursive-check">
+                    <label class="form-check-label" for="recursive-check">
+                        Inclure les sous-dossiers
+                    </label>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" id="convert-folder-btn" disabled onclick="convertFolder()">
+                        <span id="convert-folder-spinner" class="spinner-border spinner-border-sm me-2 d-none"
+                            role="status" aria-hidden="true"></span>
+                        Convertir le dossier
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="results-container" id="results-container" style="display: none;">
+            <h4 class="mb-3">Résultats de la conversion</h4>
+            <div id="results-list">
+                <!-- Les résultats seront ajoutés ici -->
+            </div>
+            <div class="d-grid gap-2 mt-3">
+                <button class="btn btn-success" id="download-all-btn" onclick="downloadAll()">
+                    <i class="fas fa-download me-2"></i>Télécharger tous les fichiers
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input caché pour sélectionner un dossier (peu supporté par les navigateurs) -->
+    <input type="file" id="folder-input" webkitdirectory directory multiple style="display: none;">
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Variables globales
+        let selectedFiles = [];
+        let selectedFormat = null;
+        let folderFormat = null;
+        let currentSessionId = null;
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', () => {
+            initDropArea();
+            initFileInput();
+            initFolderInput();
+        });
+
+        // Sélection du format pour les fichiers
+        function selectFormat(element, format) {
+            document.querySelectorAll('#files .format-icon').forEach(icon => {
+                icon.classList.remove('selected');
+            });
+            element.classList.add('selected');
+            selectedFormat = format;
+            updateConvertButtonState();
+        }
+
+        // Sélection du format pour le dossier
+        function selectFolderFormat(element, format) {
+            document.querySelectorAll('#folder .format-icon').forEach(icon => {
+                icon.classList.remove('selected');
+            });
+            element.classList.add('selected');
+            folderFormat = format;
+            updateFolderConvertButtonState();
+        }
+
+        // Initialiser la zone de glisser-déposer
+        function initDropArea() {
+            const dropArea = document.getElementById('drop-area');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight() {
+                dropArea.classList.add('highlight');
+            }
+
+            function unhighlight() {
+                dropArea.classList.remove('highlight');
+            }
+
+            dropArea.addEventListener('drop', handleDrop, false);
+        }
+
+        // Gérer le dépôt de fichiers
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        // Initialiser l'input de fichiers
+        function initFileInput() {
+            const fileInput = document.getElementById('file-input');
+            fileInput.addEventListener('change', function () {
+                handleFiles(this.files);
+            });
+        }
+
+        // Initialiser l'input de dossier
+        function initFolderInput() {
+            const folderInput = document.getElementById('folder-input');
+            folderInput.addEventListener('change', function () {
+                const folderPath = this.files[0]?.webkitRelativePath.split('/')[0];
+                document.getElementById('folder-path').value = folderPath;
+                updateFolderConvertButtonState();
+            });
+        }
+
+        // Parcourir pour sélectionner un dossier
+        function browseFolder() {
+            // C'est une interface limitée, idéalement il faudrait une application de bureau
+            // pour une sélection de dossier complète
+            document.getElementById('folder-input').click();
+        }
+
+        // Gérer les fichiers sélectionnés
+        function handleFiles(files) {
+            const newFiles = Array.from(files).filter(file => file.type === 'image/png');
+
+            if (newFiles.length === 0) {
+                showNotification('Seuls les fichiers PNG sont acceptés.', 'error');
+                return;
+            }
+
+            selectedFiles = [...selectedFiles, ...newFiles];
+            updateFilePreview();
+            updateConvertButtonState();
+        }
+
+        // Mettre à jour l'aperçu des fichiers
+        function updateFilePreview() {
+            const previewContainer = document.getElementById('preview-container');
+            previewContainer.innerHTML = '';
+
+            if (selectedFiles.length > 0) {
+                previewContainer.style.display = 'flex';
+
+                selectedFiles.forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const div = document.createElement('div');
+                        div.className = 'preview-item';
+                        div.innerHTML = `
+                            <img src="${e.target.result}" alt="${file.name}">
+                            <span class="remove-btn" onclick="removeFile(${index})">×</span>
+                        `;
+                        previewContainer.appendChild(div);
+                    }
+                    reader.readAsDataURL(file);
+                });
+            } else {
+                previewContainer.style.display = 'none';
+            }
+        }
+
+        // Supprimer un fichier de la sélection
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateFilePreview();
+            updateConvertButtonState();
+        }
+
+        // Mettre à jour l'état du bouton de conversion pour les fichiers
+        function updateConvertButtonState() {
+            const convertBtn = document.getElementById('convert-files-btn');
+            convertBtn.disabled = selectedFiles.length === 0 || !selectedFormat;
+        }
+
+        // Mettre à jour l'état du bouton de conversion pour le dossier
+        function updateFolderConvertButtonState() {
+            const convertBtn = document.getElementById('convert-folder-btn');
+            const folderPath = document.getElementById('folder-path').value;
+            convertBtn.disabled = !folderPath || !folderFormat;
+        }
+
+        // Convertir les fichiers sélectionnés
+        async function convertFiles() {
+            if (selectedFiles.length === 0 || !selectedFormat) return;
+
+            try {
+                const spinner = document.getElementById('convert-files-spinner');
+                const convertBtn = document.getElementById('convert-files-btn');
+
+                spinner.classList.remove('d-none');
+                convertBtn.disabled = true;
+
+                const formData = new FormData();
+                selectedFiles.forEach(file => {
+                    formData.append('files', file);
+                });
+                formData.append('type', selectedFormat);
+
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                showResults(data.results);
+                currentSessionId = data.sessionDir;
+                showNotification(`${data.results.length} fichiers convertis avec succès!`, 'success');
+            } catch (error) {
+                showNotification(`Erreur: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('convert-files-spinner').classList.add('d-none');
+                document.getElementById('convert-files-btn').disabled = false;
+            }
+        }
+
+        // Convertir le dossier
+        async function convertFolder() {
+            const folderPath = document.getElementById('folder-path').value;
+            const recursive = document.getElementById('recursive-check').checked;
+
+            if (!folderPath || !folderFormat) return;
+
+            try {
+                const spinner = document.getElementById('convert-folder-spinner');
+                const convertBtn = document.getElementById('convert-folder-btn');
+
+                spinner.classList.remove('d-none');
+                convertBtn.disabled = true;
+
+                const response = await fetch('/convert-folder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        folderPath,
+                        type: folderFormat,
+                        recursive: recursive.toString()
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                showResults(data.results);
+                currentSessionId = data.sessionId;
+                showNotification(`${data.results.length} fichiers convertis avec succès!`, 'success');
+            } catch (error) {
+                showNotification(`Erreur: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('convert-folder-spinner').classList.add('d-none');
+                document.getElementById('convert-folder-btn').disabled = false;
+            }
+        }
+
+        // Afficher les résultats de conversion
+        function showResults(results) {
+            const container = document.getElementById('results-container');
+            const list = document.getElementById('results-list');
+
+            list.innerHTML = '';
+
+            if (results.length > 0) {
+                container.style.display = 'block';
+
+                results.forEach(result => {
+                    const div = document.createElement('div');
+                    div.className = 'result-item';
+                    div.innerHTML = `
+                        <div class="me-auto">
+                            <strong>${result.originalName || result.convertedName}</strong>
+                            <small class="text-muted d-block">Converti en ${result.format.toUpperCase()}</small>
+                        </div>
+                        <a href="${result.downloadPath}" class="btn btn-sm btn-outline-primary" download>
+                            <i class="fas fa-download"></i> Télécharger
+                        </a>
+                    `;
+                    list.appendChild(div);
+                });
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        // Télécharger tous les fichiers
+        function downloadAll() {
+            if (!currentSessionId) return;
+
+            document.querySelectorAll('#results-list a').forEach(link => {
+                // Simuler un clic sur chaque lien de téléchargement
+                setTimeout(() => {
+                    link.click();
+                }, 100);
+            });
+        }
+
+        // Afficher une notification
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            const content = document.getElementById('notification-content');
+
+            notification.classList.remove('success', 'error');
+            notification.classList.add(type);
+
+            content.textContent = message;
+            notification.classList.add('show');
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 5000);
+        }
+    </script>
+</body>
+
+</html>
