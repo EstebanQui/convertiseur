@@ -1,4 +1,4 @@
-# Dark Spell Converter
+# Converter
 
 Un convertisseur de fichiers PNG vers PDF ou WebP.
 
