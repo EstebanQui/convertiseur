@@ -2,7 +2,7 @@
 
 Un convertisseur de fichiers PNG vers PDF ou WebP.
 
-## Installation
+## guide d'Installation
 
 ```bash
 # Installer les dépendances
