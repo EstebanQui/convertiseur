@@ -236,7 +236,7 @@
     <div class="container main-container">
         <div class="header">
             <h1><i class="fas fa-magic"></i> Dark Spell Converter</h1>
-            <p class="lead">Convertisseur de fichiers PNG vers PDF ou WebP</p>
+            <p class="lead">Convertisseur de fichiers PNG, JPG ou JPEG vers PDF, WebP ou SVG</p>
         </div>
 
         <ul class="nav nav-tabs" id="myTab" role="tablist">
@@ -266,13 +266,17 @@
                         <i class="fas fa-image"></i>
                         <div>WebP</div>
                     </div>
+                    <div class="format-icon" data-format="svg" onclick="selectFormat(this, 'svg')">
+                        <i class="fas fa-bezier-curve"></i>
+                        <div>SVG</div>
+                    </div>
                 </div>
 
                 <div class="drop-area" id="drop-area">
                     <i class="fas fa-cloud-upload-alt drop-icon"></i>
-                    <h4>Glissez et déposez des fichiers PNG ici</h4>
+                    <h4>Glissez et déposez des fichiers PNG, JPG ou JPEG ici</h4>
                     <p>ou</p>
-                    <input type="file" class="file-input" id="file-input" multiple accept=".png">
+                    <input type="file" class="file-input" id="file-input" multiple accept=".png,.jpg,.jpeg,image/png,image/jpeg">
                     <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
                         Sélectionner des fichiers
                     </button>
@@ -302,12 +306,16 @@
                         <i class="fas fa-image"></i>
                         <div>WebP</div>
                     </div>
+                    <div class="format-icon" data-format="svg" onclick="selectFolderFormat(this, 'svg')">
+                        <i class="fas fa-bezier-curve"></i>
+                        <div>SVG</div>
+                    </div>
                 </div>
 
                 <div class="folder-path-container">
                     <div class="input-group">
                         <input type="text" class="form-control" id="folder-path"
-                            placeholder="Chemin du dossier contenant les images PNG" readonly>
+                            placeholder="Chemin du dossier contenant les images PNG, JPG ou JPEG" readonly>
                         <button class="btn btn-outline-primary" type="button" id="browse-folder-btn"
                             onclick="browseFolder()">Parcourir</button>
                     </div>
@@ -446,11 +454,20 @@
         }
 
         // Gérer les fichiers sélectionnés
+        function isSupportedImageFile(file) {
+            const lowerName = file.name.toLowerCase();
+            return file.type === 'image/png'
+                || file.type === 'image/jpeg'
+                || lowerName.endsWith('.png')
+                || lowerName.endsWith('.jpg')
+                || lowerName.endsWith('.jpeg');
+        }
+
         function handleFiles(files) {
-            const newFiles = Array.from(files).filter(file => file.type === 'image/png');
+            const newFiles = Array.from(files).filter(isSupportedImageFile);
 
             if (newFiles.length === 0) {
-                showNotification('Seuls les fichiers PNG sont acceptés.', 'error');
+                showNotification('Seuls les fichiers PNG, JPG et JPEG sont acceptés.', 'error');
                 return;
             }
 

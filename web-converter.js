@@ -5,13 +5,19 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
-import sharp from 'sharp';
-import { PDFDocument } from 'pdf-lib';
-import { glob } from 'glob';
 import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import open from 'open';
 import chalk from 'chalk';
+import { convertFile } from './src/conversion/converter-service.js';
+import { discoverSupportedFiles } from './src/conversion/file-discovery.js';
+import {
+  SUPPORTED_SOURCE_EXTENSIONS,
+  isSupportedUploadMimeType,
+  ensureSupportedOutputFormat,
+  getBaseNameWithoutExtension,
+  replacePathExtension,
+} from './src/conversion/format-registry.js';
 
 // Configuration
 const __filename = fileURLToPath(import.meta.url);
@@ -32,12 +38,17 @@ const storage = multer.diskStorage({
   },
 });
 
-// Filtre pour n'accepter que les fichiers PNG
+// Filtre pour n'accepter que les formats d'image supportés
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype === 'image/png') {
+  if (isSupportedUploadMimeType(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Seuls les fichiers PNG sont acceptés'), false);
+    cb(
+      new Error(
+        `Seuls les fichiers ${SUPPORTED_SOURCE_EXTENSIONS.map((extension) => extension.slice(1).toUpperCase()).join(', ')} sont acceptes`,
+      ),
+      false,
+    );
   }
 };
 
@@ -55,32 +66,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/downloads', express.static(OUTPUT_DIR));
 
-// Fonctions de conversion
-async function convertPngToWebp(inputPath, outputPath) {
-  await sharp(inputPath).webp({ quality: 90 }).toFile(outputPath);
-  return path.basename(outputPath);
-}
-
-async function convertPngToPdf(inputPath, outputPath) {
-  const image = await sharp(inputPath).toBuffer();
-  const { width, height } = await sharp(inputPath).metadata();
-
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([width, height]);
-
-  const pngImage = await pdfDoc.embedPng(image);
-  page.drawImage(pngImage, {
-    x: 0,
-    y: 0,
-    width,
-    height,
-  });
-
-  const pdfBytes = await pdfDoc.save();
-  await fs.writeFile(outputPath, pdfBytes);
-  return path.basename(outputPath);
-}
-
 // Créer les dossiers nécessaires
 async function setupDirectories() {
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
@@ -95,13 +80,7 @@ app.get('/', (req, res) => {
 // Route pour convertir un ou plusieurs fichiers
 app.post('/convert', upload.array('files', 100), async (req, res) => {
   try {
-    const { type } = req.body; // pdf ou webp
-
-    if (!type || (type !== 'pdf' && type !== 'webp')) {
-      return res
-        .status(400)
-        .json({ error: 'Type de conversion invalide. Utilisez "pdf" ou "webp".' });
-    }
+    const type = ensureSupportedOutputFormat(req.body.type);
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "Aucun fichier n'a été téléchargé." });
@@ -114,17 +93,8 @@ app.post('/convert', upload.array('files', 100), async (req, res) => {
     // Convertir tous les fichiers
     const results = [];
     for (const file of req.files) {
-      const outputFile = path.join(
-        outputSessionDir,
-        `${path.basename(file.filename, '.png')}.${type}`,
-      );
-
-      let result;
-      if (type === 'webp') {
-        result = await convertPngToWebp(file.path, outputFile);
-      } else if (type === 'pdf') {
-        result = await convertPngToPdf(file.path, outputFile);
-      }
+      const outputFile = path.join(outputSessionDir, `${getBaseNameWithoutExtension(file.filename)}.${type}`);
+      await convertFile(file.path, outputFile, type);
 
       results.push({
         originalName: file.originalname,
@@ -141,17 +111,19 @@ app.post('/convert', upload.array('files', 100), async (req, res) => {
       sessionDir: path.basename(outputSessionDir),
     });
   } catch (error) {
+    const statusCode = error.message.startsWith('Type de conversion invalide') ? 400 : 500;
     console.error('Erreur lors de la conversion:', error);
-    res.status(500).json({ error: `Erreur lors de la conversion: ${error.message}` });
+    res.status(statusCode).json({ error: `Erreur lors de la conversion: ${error.message}` });
   }
 });
 
 // Route pour convertir un dossier
 app.post('/convert-folder', async (req, res) => {
   try {
-    const { folderPath, type, recursive } = req.body;
+    const { folderPath, recursive } = req.body;
+    const type = ensureSupportedOutputFormat(req.body.type);
 
-    if (!folderPath || !type || (type !== 'pdf' && type !== 'webp')) {
+    if (!folderPath) {
       return res.status(400).json({ error: 'Paramètres invalides.' });
     }
 
@@ -170,12 +142,13 @@ app.post('/convert-folder', async (req, res) => {
     const outputSessionDir = path.join(OUTPUT_DIR, sessionId);
     await fs.mkdir(outputSessionDir, { recursive: true });
 
-    // Trouver tous les fichiers PNG dans le dossier
-    const pattern = recursive === 'true' ? `${folderPath}/**/*.png` : `${folderPath}/*.png`;
-    const files = await glob(pattern);
+    // Trouver tous les fichiers image supportés dans le dossier
+    const files = await discoverSupportedFiles(folderPath, recursive === 'true');
 
     if (files.length === 0) {
-      return res.status(400).json({ error: 'Aucun fichier PNG trouvé dans le dossier spécifié.' });
+      return res.status(400).json({
+        error: `Aucune image supportée trouvée dans le dossier spécifié. Extensions acceptées: ${SUPPORTED_SOURCE_EXTENSIONS.join(', ')}`,
+      });
     }
 
     // Convertir tous les fichiers
@@ -185,20 +158,14 @@ app.post('/convert-folder', async (req, res) => {
       const outputSubdir = path.dirname(path.join(outputSessionDir, relativePath));
       await fs.mkdir(outputSubdir, { recursive: true });
 
-      const outputFile = path.join(outputSubdir, `${path.basename(file, '.png')}.${type}`);
-
-      let result;
-      if (type === 'webp') {
-        result = await convertPngToWebp(file, outputFile);
-      } else if (type === 'pdf') {
-        result = await convertPngToPdf(file, outputFile);
-      }
+      const outputFile = path.join(outputSubdir, `${getBaseNameWithoutExtension(file)}.${type}`);
+      await convertFile(file, outputFile, type);
 
       results.push({
         originalPath: file,
         convertedName: path.basename(outputFile),
         relativePath: relativePath,
-        downloadPath: `/downloads/${sessionId}/${relativePath.replace(/\.png$/, `.${type}`)}`,
+        downloadPath: `/downloads/${sessionId}/${replacePathExtension(relativePath, type)}`,
         format: type,
       });
     }
@@ -210,8 +177,9 @@ app.post('/convert-folder', async (req, res) => {
       sessionId,
     });
   } catch (error) {
+    const statusCode = error.message.startsWith('Type de conversion invalide') ? 400 : 500;
     console.error('Erreur lors de la conversion du dossier:', error);
-    res.status(500).json({ error: `Erreur lors de la conversion: ${error.message}` });
+    res.status(statusCode).json({ error: `Erreur lors de la conversion: ${error.message}` });
   }
 });
 
@@ -245,6 +213,18 @@ app.delete('/sessions/:sessionId', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: `Erreur lors de la suppression: ${error.message}` });
   }
+});
+
+app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    return res.status(400).json({ error: `Erreur de téléchargement: ${error.message}` });
+  }
+
+  if (error) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  return next();
 });
 
 // Démarrer le serveur
